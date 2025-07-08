@@ -8,3 +8,5 @@ export * from './actions/authUtils';
 export * from './assertions';
 export * from './navigation';
 export * from './waiting';
+
+export * from './uiAutomationHelper';
