@@ -61,7 +61,7 @@ export class UiAutomationHelper {
     const lower = keyword.toLowerCase().trim();
     const result = new Set<string>();
     
-    // Add the original keyword
+    // Add the original keywordh
     result.add(lower);
     
     let bestMatch = '';
