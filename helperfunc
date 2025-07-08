@@ -1,0 +1,82 @@
+import { Page, Locator } from 'playwright';
+import stringSimilarity from 'string-similarity';
+
+export class UiAutomationHelper {
+  private synonyms: Record<string, string[]> = {
+    view: ['view', 'eye', '👁️', 'open', 'inspect'],
+    edit: ['edit', 'pencil', 'modify', '✏️'],
+    delete: ['delete', 'remove', 'trash', '🗑️', 'bin'],
+    run: ['run', 'execute', '▶', 'start'],
+    submit: ['submit', 'send', 'save', '📤'],
+    download: ['download', '⬇️', 'save as', 'dl'],
+    move: ['move', 'relocate', 'drag'],
+    copy: ['copy', 'duplicate', 'clone'],
+    share: ['share', 'send to', '📤', 'forward'],
+  };
+
+  private expandIntent(keyword: string): string[] {
+    const lower = keyword.toLowerCase();
+    for (const [main, list] of Object.entries(this.synonyms)) {
+      if (list.includes(lower)) return list;
+    }
+    return [lower]; // fallback to literal keyword
+  }
+
+  async clickSmartIntent(page: Page, intent: string): Promise<void> {
+    const threshold = 0.5;
+    const searchTerms = this.expandIntent(intent);
+    const selectors = [
+      'button',
+      'a',
+      '[role="button"]',
+      'svg',
+      'i',
+      '[aria-label]',
+      '[title]',
+      '[alt]',
+      '[data-testid]',
+      '[data-icon]',
+    ];
+
+    let bestMatch: Locator | null = null;
+    let bestScore = 0;
+
+    for (const selector of selectors) {
+      const elements = page.locator(selector);
+      const count = await elements.count();
+
+      for (let i = 0; i < count; i++) {
+        const el = elements.nth(i);
+
+        const textBits = [
+          await el.textContent(),
+          await el.getAttribute('title'),
+          await el.getAttribute('aria-label'),
+          await el.getAttribute('alt'),
+          await el.getAttribute('class'),
+          await el.getAttribute('data-icon'),
+        ];
+
+        const fullText = textBits.filter(Boolean).join(' ').toLowerCase();
+
+        for (const term of searchTerms) {
+          const score = stringSimilarity.compareTwoStrings(fullText, term.toLowerCase());
+
+          if (score > bestScore && score >= threshold) {
+            bestScore = score;
+            bestMatch = el;
+          }
+        }
+      }
+    }
+
+    if (bestMatch) {
+      await bestMatch.scrollIntoViewIfNeeded();
+      await bestMatch.click();
+      console.log(`✅ Clicked best match for "${intent}" with score ${bestScore.toFixed(2)}`);
+      return;
+    }
+
+    throw new Error(`❌ No element matched intent: "${intent}"`);
+  }
+}
